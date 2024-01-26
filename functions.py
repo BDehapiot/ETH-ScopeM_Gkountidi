@@ -3,6 +3,9 @@
 import cv2
 import time
 import numpy as np
+from skimage import io
+from pathlib import Path
+from joblib import Parallel, delayed
 
 #%% Functions -----------------------------------------------------------------
 
@@ -34,10 +37,13 @@ def avi2ndarray(path, frame="all"):
     
     return arr
 
-def get_patches(img, size=256, overlap=32):
+def get_patches(arr, size, overlap):
+    
+    # Get dimensions
+    if arr.ndim == 2: nT = 1; nY, nX = arr.shape 
+    if arr.ndim == 3: nT, nY, nX = arr.shape
     
     # Get variables
-    nY, nX = img.shape
     y0s = np.arange(0, nY, size - overlap)
     x0s = np.arange(0, nX, size - overlap)
     yMax = y0s[-1] + size
@@ -47,96 +53,111 @@ def get_patches(img, size=256, overlap=32):
     yPad1, yPad2 = yPad // 2, (yPad + 1) // 2
     xPad1, xPad2 = xPad // 2, (xPad + 1) // 2
     
-    # Pad image
-    img_pad = np.pad(img, ((yPad1, yPad2), (xPad1, xPad2)), mode='reflect') 
+    # Pad array
+    if arr.ndim == 2:
+        arr_pad = np.pad(
+            arr, ((yPad1, yPad2), (xPad1, xPad2)), mode='reflect') 
+    if arr.ndim == 3:
+        arr_pad = np.pad(
+            arr, ((0, 0), (yPad1, yPad2), (xPad1, xPad2)), mode='reflect')         
     
     # Extract patches
     patches = []
-    for y0 in y0s:
-        for x0 in x0s:
-            patches.append(img_pad[y0:y0 + size, x0:x0 + size])
-            
-    # Output dict
-    patches = {
-        "nY"      : nY,
-        "nX"      : nX,
-        "size"    : size,
-        "overlap" : overlap,
-        "patches" : patches,
-        }
+    if arr.ndim == 2:
+        for y0 in y0s:
+            for x0 in x0s:
+                patches.append(arr_pad[y0:y0 + size, x0:x0 + size])
+    if arr.ndim == 3:
+        for t in range(nT):
+            for y0 in y0s:
+                for x0 in x0s:
+                    patches.append(arr_pad[t, y0:y0 + size, x0:x0 + size])
             
     return patches
 
-def merge_patches(patches):
+def merge_patches(patches, shape, size, overlap):
     
-    count = 0
-    
+    # Get dimensions 
+    if len(shape) == 2: nT = 1; nY, nX = shape
+    if len(shape) == 3: nT, nY, nX = shape
+    nPatch = len(patches) // nT
+
     # Get variables
-    nY = patches["nY"]
-    nX = patches["nX"]
-    size = patches["size"]
-    overlap = patches["overlap"]
-    patches = patches["patches"]
     y0s = np.arange(0, nY, size - overlap)
     x0s = np.arange(0, nX, size - overlap)
     yMax = y0s[-1] + size
     xMax = x0s[-1] + size
     yPad = yMax - nY
     xPad = xMax - nX
-    yPad1, yPad2 = yPad // 2, (yPad + 1) // 2
-    xPad1, xPad2 = xPad // 2, (xPad + 1) // 2
+    yPad1 = yPad // 2
+    xPad1 = xPad // 2
 
     # Merge patches
-    img = np.full((2, nY + yPad, nX + xPad), np.nan)
-    for i, y0 in enumerate(y0s):
-        for j, x0 in enumerate(x0s):
-            if i % 2 == j % 2:
-                img[0, y0:y0 + size, x0:x0 + size] = patches[count]
-            else:
-                img[1, y0:y0 + size, x0:x0 + size] = patches[count]
-            count += 1
-    img = np.nanmean(img, axis=0).astype(int)
-    
-    # Remove padding
-    img = img[yPad1:yPad1 + nY, xPad1:xPad1 + nX]
-    
-    return img
+    def _merge_patches(patches):
+        count = 0
+        arr = np.full((2, nY + yPad, nX + xPad), np.nan)
+        for i, y0 in enumerate(y0s):
+            for j, x0 in enumerate(x0s):
+                if i % 2 == j % 2:
+                    arr[0, y0:y0 + size, x0:x0 + size] = patches[count]
+                else:
+                    arr[1, y0:y0 + size, x0:x0 + size] = patches[count]
+                count += 1 
+        arr = np.nanmean(arr, axis=0)
+        arr = arr[yPad1:yPad1 + nY, xPad1:xPad1 + nX]
+        return arr
+        
+    if len(shape) == 2:
+        arr = _merge_patches(patches)
 
-#%% Tests ---------------------------------------------------------------------
+    if len(shape) == 3:
+        patches = np.stack(patches).reshape(nT, nPatch, size, size)
+        arr = Parallel(n_jobs=-1)(
+            delayed(_merge_patches)(patches[t,...])
+            for t in range(nT)
+            )
+        arr = np.stack(arr)
+        
+    return arr
+                
+#%% Tests --------------------------------------------------------------------- 
 
-# from pathlib import Path
-
+# # Paths
 # local_path = Path("D:\local_Gkountidi\data")
 # avi_name = "20231017-test 1+ 10nM erlotinib.avi"
 
-# print("avi2ndarray :", end='')
+# # Parameters
+# size = 512
+# overlap = size // 8
+
+# # -----------------------------------------------------------------------------
+
+# # Open data (from tif)
+# arr = io.imread(Path("D:\\local_Gkountidi\\data\\rscale.tif"))
+# # arr = arr[0,...] # Test only first frame
+
+# # # Open data (from avi)
+# # t0 = time.time()
+# # arr = avi2ndarray(Path(local_path, avi_name), frame="all")
+# # t1 = time.time()
+# # print(f"avi2ndarray : {(t1-t0):<5.2f}s") 
+
+# # Get patches
 # t0 = time.time()
-
-# frames = avi2ndarray(Path(local_path, avi_name))
-
+# patches = get_patches(arr, size, overlap)
 # t1 = time.time()
-# print(f" {(t1-t0):<5.2f}s") 
+# print(f"get_patches : {(t1-t0):<5.2f}s") 
 
-# -----------------------------------------------------------------------------
-
-# img = frames[0,...]
-
-# print("get_patches :", end='')
+# # Merge patches
 # t0 = time.time()
-
-# for _ in range(1):
-
-#     patches = get_patches(img, size=256, overlap=32)
-#     img_new = merge_patches(patches)
-
+# shape = arr.shape
+# arr_new = merge_patches(patches, shape, size, overlap)
 # t1 = time.time()
-# print(f" {(t1-t0):<5.5f}s") 
+# print(f"Merge patches : {(t1-t0):<5.2f}s") 
 
-# -----------------------------------------------------------------------------
+# # -----------------------------------------------------------------------------
 
 # import napari
 # viewer = napari.Viewer()
-# viewer.add_image(img_pad)
-# viewer.add_image(img_new)
-# viewer.add_image(np.stack(patches))
-
+# viewer.add_image(arr)
+# viewer.add_image(arr_new)

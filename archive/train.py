@@ -9,64 +9,48 @@ import albumentations as A
 import matplotlib.pyplot as plt
 import segmentation_models as sm
 from joblib import Parallel, delayed 
-from skimage.transform import downscale_local_mean
 
 # TensorFlow
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
-# Functions
-from functions import get_patches
-
 #%% Inputs --------------------------------------------------------------------
 
-# Paths
-train_path = Path(Path.cwd(), 'data', 'train')
-
-# Patches
-rescale_factor = 2
-size = 512 // rescale_factor
-overlap = size // 8
-
 # Data augmentation
-random.seed(42)
-iterations = 1000
+iterations = 100
+random.seed(42) 
 
 # Train model
 validation_split = 0.2
 n_epochs = 100
-batch_size = 16
+batch_size = 8
+
+# Paths
+train_path = Path(Path.cwd(), "data", "train")
 
 #%% Pre-processing ------------------------------------------------------------
 
-iPatches, mPatches = [], []
+# Open training data
+images, masks = [], []
 for path in train_path.iterdir():
     if 'mask' in path.name:
         
-        # Open data
-        msk = io.imread(path).astype(bool).astype(float)
-        img = io.imread(str(path).replace('_mask', ''))
+        # Open masks
+        masks.append(io.imread(path).astype("float"))
         
-        # Downscale images (optional)
-        if rescale_factor != 1:
-            msk = (downscale_local_mean(msk, rescale_factor) > 0.5).astype(float)
-            img = downscale_local_mean(img, rescale_factor)
+        # Open & normalize images
+        image = io.imread(str(path).replace('_mask', ''))
+        pMax = np.percentile(image, 99.9)
+        image[image > pMax] = pMax
+        image = (image / pMax).astype(float)
+        images.append(image)                  
         
-        # Open & normalize image
-        pMax = np.percentile(img, 99.9)
-        img[img > pMax] = pMax
-        img = (img / pMax).astype(float)
-        
-        # Extract patches
-        iPatches.append(get_patches(img, size, overlap))
-        mPatches.append(get_patches(msk, size, overlap))
-       
-imgs = np.stack([patch for patches in iPatches for patch in patches])
-msks = np.stack([patch for patches in mPatches for patch in patches])
+images = np.stack(images)
+masks = np.stack(masks)
 
 # # Display 
 # viewer = napari.Viewer()
-# viewer.add_image(imgs)
-# viewer.add_image(msks) 
+# viewer.add_image(images)
+# viewer.add_image(masks)        
 
 #%% Augmentation --------------------------------------------------------------
 
@@ -89,17 +73,17 @@ if augment:
         outputs = operations(image=images[idx,...], mask=masks[idx,...])
         return outputs['image'], outputs['mask']
     outputs = Parallel(n_jobs=-1)(
-        delayed(augment_data)(imgs, msks, operations)
+        delayed(augment_data)(images, masks, operations)
         for i in range(iterations)
         )
-    imgs = np.stack([data[0] for data in outputs])
-    msks = np.stack([data[1] for data in outputs])
+    images = np.stack([data[0] for data in outputs])
+    masks = np.stack([data[1] for data in outputs])
     
     # # Display 
     # viewer = napari.Viewer()
-    # viewer.add_image(imgs)
-    # viewer.add_image(msks) 
-
+    # viewer.add_image(images)
+    # viewer.add_image(masks)    
+    
 #%% Model training ------------------------------------------------------------
 
 # Define & compile model
@@ -116,28 +100,28 @@ model.compile(
     metrics=['mse']
     )
 
-# Checkpoint & callbacks
+# Checkpoint & callback
 model_checkpoint_callback = ModelCheckpoint(
     filepath="model_weights.h5",
     save_weights_only=True,
     monitor='val_loss',
     mode='min',
-    save_best_only=True
-    )
+    save_best_only=True)
+
 callbacks = [
     EarlyStopping(patience=20, monitor='val_loss'),
     model_checkpoint_callback
-    ]
+]
 
 # train model
 history = model.fit(
-    x=imgs, y=msks,
+    x=images,
+    y=masks,
     validation_split=validation_split,
     batch_size=batch_size,
     epochs=n_epochs,
     callbacks=callbacks,
-    )
-
+)
 # Plot training results
 loss = history.history['loss']
 val_loss = history.history['val_loss']
@@ -149,3 +133,7 @@ plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.legend()
 plt.show()
+
+# Save model
+# model.save_weights(Path(Path.cwd(), "model_weights.h5"))
+# model.save(Path(Path.cwd(), "model.pb"), save_format="tf")
