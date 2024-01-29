@@ -6,6 +6,7 @@ import numpy as np
 from skimage import io
 from pathlib import Path
 from joblib import Parallel, delayed
+from skimage.transform import downscale_local_mean
 
 #%% Functions -----------------------------------------------------------------
 
@@ -36,6 +37,38 @@ def avi2ndarray(path, frame="all"):
     cap.release()
     
     return arr
+
+# -----------------------------------------------------------------------------
+
+def preprocessing(arr, rescale_factor, mask=False):
+       
+    def _preprocessing(img):
+        
+        if mask:     
+            img = img.astype(bool).astype(float)
+            img = (downscale_local_mean(img, rescale_factor) > 0.5).astype(float)
+            
+        else:
+            img = downscale_local_mean(img, rescale_factor)
+            pMax = np.percentile(img, 99.9)
+            img[img > pMax] = pMax
+            img = (img / pMax).astype(float)
+            
+        return img
+    
+    if arr.ndim == 2:
+        arr = _preprocessing(arr)
+        
+    if arr.ndim == 3:
+        outputs = Parallel(n_jobs=-1)(
+            delayed(_preprocessing)(img)
+            for img in arr
+            )
+        arr = np.stack(outputs)
+    
+    return arr
+
+# -----------------------------------------------------------------------------
 
 def get_patches(arr, size, overlap):
     
@@ -74,6 +107,8 @@ def get_patches(arr, size, overlap):
                     patches.append(arr_pad[t, y0:y0 + size, x0:x0 + size])
             
     return patches
+
+# -----------------------------------------------------------------------------
 
 def merge_patches(patches, shape, size, overlap):
     
@@ -119,7 +154,7 @@ def merge_patches(patches, shape, size, overlap):
         arr = np.stack(arr)
         
     return arr
-                
+
 #%% Tests --------------------------------------------------------------------- 
 
 # # Paths
@@ -161,3 +196,57 @@ def merge_patches(patches, shape, size, overlap):
 # viewer = napari.Viewer()
 # viewer.add_image(arr)
 # viewer.add_image(arr_new)
+
+#%% Tests --------------------------------------------------------------------- 
+
+# # Paths
+# local_path = Path("D:\local_Gkountidi\data")
+# avi_name = "20231017-test 1+ 10nM erlotinib.avi"
+
+# # Parameters
+# rescale_factor = 2
+# size = 512 // rescale_factor
+# overlap = size // 8
+
+# # -----------------------------------------------------------------------------
+
+# # Open data (from avi)
+# t0 = time.time()
+# arr = avi2ndarray(Path(local_path, avi_name), frame="all")
+# t1 = time.time()
+# print(f"avi2ndarray : {(t1-t0):<5.2f}s") 
+
+# def preprocessing(arr, rescale_factor, mask=False):
+       
+#     def _preprocessing(img):
+        
+#         if mask:     
+#             img = img.astype(bool).astype(float)
+#             img = (downscale_local_mean(img, rescale_factor) > 0.5).astype(float)
+            
+#         else:
+#             img = downscale_local_mean(img, rescale_factor)
+#             pMax = np.percentile(img, 99.9)
+#             img[img > pMax] = pMax
+#             img = (img / pMax).astype(float)
+            
+#         return img
+    
+#     if arr.ndim == 2:
+#         arr = _preprocessing(arr)
+        
+#     if arr.ndim == 3:
+#         outputs = Parallel(n_jobs=-1)(
+#             delayed(_preprocessing)(img)
+#             for img in arr
+#             )
+#         arr = np.stack(outputs)
+    
+#     return arr
+
+# # Preprocessing
+# t0 = time.time()
+# arr = preprocessing(arr, rescale_factor, mask=False)
+# t1 = time.time()
+# print(f"preprocessing : {(t1-t0):<5.2f}s")         
+    

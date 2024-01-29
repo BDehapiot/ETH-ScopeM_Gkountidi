@@ -1,6 +1,7 @@
 #%% Imports -------------------------------------------------------------------
 
 import cv2
+import time
 import napari
 import numpy as np
 from skimage import io
@@ -12,7 +13,7 @@ from joblib import Parallel, delayed
 from skimage.transform import downscale_local_mean 
 
 # Functions
-from functions import avi2ndarray, get_patches, merge_patches
+from functions import avi2ndarray, preprocessing, get_patches, merge_patches
 
 #%% Inputs --------------------------------------------------------------------
 
@@ -21,8 +22,8 @@ local_path = Path("D:\local_Gkountidi\data")
 predict_path = Path(Path.cwd(), "data", "predict")
 model_path = Path(Path.cwd(), "model_weights.h5")
 
-avi_name = "20231017-test 1+ 10nM erlotinib.avi"
-# avi_name = "20231017-test 1+ PBS.avi"
+# avi_name = "20231017-test 1+ 10nM erlotinib.avi"
+avi_name = "20231017-test 1+ PBS.avi"
 # avi_name = "20231017-test 2+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 2+ PBS.avi"
 # avi_name = "20231017-test 3+ 10nM erlotinib.avi"
@@ -37,17 +38,27 @@ overlap = size // 8
 
 #%% Pre-processing ------------------------------------------------------------
 
-# Open & normalize image
+# Open data
 path = Path(local_path, avi_name)
+print("Open data       :", end='')
+t0 = time.time()
 arr = avi2ndarray(path, frame=frame)
-if rescale_factor != 1:
-    arr = downscale_local_mean(arr, (1, rescale_factor, rescale_factor))
-pMax = np.percentile(arr, 99.9)
-arr[arr > pMax] = pMax
-arr = (arr / pMax).astype(float)
+t1 = time.time()
+print(f" {(t1-t0):<5.2f}s") 
 
-# 
-arr = arr[0:50,...]
+# Preprocessing
+print("Preprocessing   :", end='')
+t0 = time.time()
+arr = preprocessing(arr, rescale_factor, mask=False)
+t1 = time.time()
+print(f" {(t1-t0):<5.2f}s") 
+
+# Extract patches
+print("Extract patches :", end='')
+t0 = time.time()
+patches = np.stack(get_patches(arr, size, overlap))
+t1 = time.time()
+print(f" {(t1-t0):<5.2f}s") 
 
 #%% Predict -------------------------------------------------------------------
 
@@ -68,32 +79,24 @@ model.compile(
 # Load weights
 model.load_weights(model_path) 
 
-# 
-predict = []
-for img in arr:
-    img_patches = get_patches(img, size=size, overlap=overlap)
-    imgs = np.stack([patches for patches in img_patches["patches"]])
-    probs = model.predict(imgs).squeeze()
-    prob_patches = img_patches.copy()
-    for i, prob in enumerate(probs):
-        prob_patches["patches"][i] = prob
-    predict.append(merge_patches(prob_patches))
-    
-# # Predict
-# probs = model.predict(imgs).squeeze()
+# Predict
+predict = model.predict(patches).squeeze()
 
-# # 
-# prob_patches = patches.copy()
-# for i, prob in enumerate(probs):
-#     prob_patches["patches"][i] = prob
-# merged_probs = merge_patches(prob_patches)
+# Merge patches
+print("Merge patches :", end='')
+t0 = time.time()
+predict = merge_patches(predict, arr.shape, size, overlap)
+t1 = time.time()
+print(f" {(t1-t0):<5.2f}s") 
 
-#%% Display -------------------------------------------------------------------
-
+# Display
 viewer = napari.Viewer()
 viewer.add_image(np.stack(arr)) 
 viewer.add_image(np.stack(predict)) 
 
-# viewer = napari.Viewer()
-# viewer.add_image(img) 
-# viewer.add_image(merged_probs)
+# Save
+io.imsave(
+    Path(local_path, avi_name.replace(".avi", "_predict.tif")),
+    predict.astype("float32"), check_contrast=False
+    )
+
