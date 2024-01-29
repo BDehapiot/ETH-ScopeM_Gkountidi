@@ -1,16 +1,11 @@
 #%% Imports -------------------------------------------------------------------
 
-import cv2
 import time
 import napari
 import numpy as np
 from skimage import io
-import tensorflow as tf
 from pathlib import Path
-import matplotlib.pyplot as plt
 import segmentation_models as sm
-from joblib import Parallel, delayed
-from skimage.transform import downscale_local_mean 
 
 # Functions
 from functions import avi2ndarray, preprocessing, get_patches, merge_patches
@@ -19,14 +14,20 @@ from functions import avi2ndarray, preprocessing, get_patches, merge_patches
 
 # Paths
 local_path = Path("D:\local_Gkountidi\data")
-predict_path = Path(Path.cwd(), "data", "predict")
+# predict_path = Path(Path.cwd(), "data", "predict")
 model_path = Path(Path.cwd(), "model_weights.h5")
 
 # avi_name = "20231017-test 1+ 10nM erlotinib.avi"
-avi_name = "20231017-test 1+ PBS.avi"
+# avi_name = "20231017-test 1+ PBS.avi"
 # avi_name = "20231017-test 2+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 2+ PBS.avi"
 # avi_name = "20231017-test 3+ 10nM erlotinib.avi"
+# avi_name = "20231017-test 3+ PBS.avi"
+# avi_name = "20231017-test 4+ 1nM erlotinib.avi"
+# avi_name = "20231017-test 4+ PBS.avi"
+# avi_name = "20231017-test 5+ 1nM erlotinib.avi"
+# avi_name = "20231017-test 5+ PBS.avi"
+# avi_name = "20231017-test 6+ PBS.avi"
 
 # Frames
 frame = "all"
@@ -83,7 +84,7 @@ model.load_weights(model_path)
 predict = model.predict(patches).squeeze()
 
 # Merge patches
-print("Merge patches :", end='')
+print("Merge patches   :", end='')
 t0 = time.time()
 predict = merge_patches(predict, arr.shape, size, overlap)
 t1 = time.time()
@@ -96,7 +97,10 @@ viewer.add_image(np.stack(predict))
 
 # Save
 io.imsave(
+    Path(local_path, avi_name.replace(".avi", "_rescale.tif")),
+    arr.astype("float32"), check_contrast=False
+    )
+io.imsave(
     Path(local_path, avi_name.replace(".avi", "_predict.tif")),
     predict.astype("float32"), check_contrast=False
     )
-
