@@ -24,7 +24,7 @@ model_path = Path(Path.cwd(), "model_weights.h5")
 # avi_name = "20231017-test 3+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 3+ PBS.avi"
 # avi_name = "20231017-test 4+ 1nM erlotinib.avi"
-# avi_name = "20231017-test 4+ PBS.avi"
+avi_name = "20231017-test 4+ PBS.avi"
 # avi_name = "20231017-test 5+ 1nM erlotinib.avi"
 # avi_name = "20231017-test 5+ PBS.avi"
 # avi_name = "20231017-test 6+ PBS.avi"
@@ -33,7 +33,7 @@ model_path = Path(Path.cwd(), "model_weights.h5")
 frame = "all"
 
 # Patches
-rescale_factor = 2
+rescale_factor = 4
 size = 512 // rescale_factor
 overlap = size // 8
 

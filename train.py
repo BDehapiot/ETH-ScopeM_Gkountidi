@@ -22,7 +22,7 @@ from functions import preprocessing, get_patches
 train_path = Path(Path.cwd(), 'data', 'train')
 
 # Patches
-rescale_factor = 2
+rescale_factor = 4
 size = 512 // rescale_factor
 overlap = size // 8
 
@@ -33,7 +33,7 @@ iterations = 1000
 # Train model
 validation_split = 0.2
 n_epochs = 100
-batch_size = 16
+batch_size = 32
 
 #%% Pre-processing ------------------------------------------------------------
 
@@ -88,10 +88,10 @@ if augment:
     img_patches = np.stack([data[0] for data in outputs])
     msk_patches = np.stack([data[1] for data in outputs])
     
-    # Display 
-    viewer = napari.Viewer()
-    viewer.add_image(img_patches)
-    viewer.add_image(msk_patches) 
+    # # Display 
+    # viewer = napari.Viewer()
+    # viewer.add_image(img_patches)
+    # viewer.add_image(msk_patches) 
 
 #%% Model training ------------------------------------------------------------
 
