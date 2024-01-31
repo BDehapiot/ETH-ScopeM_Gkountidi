@@ -22,14 +22,14 @@ from scipy.ndimage import distance_transform_edt
 #%% Inputs --------------------------------------------------------------------
 
 local_path = Path("D:\local_Gkountidi\data")
-avi_name = "20231017-test 1+ 10nM erlotinib.avi"
+# avi_name = "20231017-test 1+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 1+ PBS.avi"
 # avi_name = "20231017-test 2+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 2+ PBS.avi"
 # avi_name = "20231017-test 3+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 3+ PBS.avi"
 # avi_name = "20231017-test 4+ 1nM erlotinib.avi"
-# avi_name = "20231017-test 4+ PBS.avi"
+avi_name = "20231017-test 4+ PBS.avi"
 # avi_name = "20231017-test 5+ 1nM erlotinib.avi"
 # avi_name = "20231017-test 5+ PBS.avi"
 # avi_name = "20231017-test 6+ PBS.avi"
@@ -132,105 +132,124 @@ print("test :", end='')
 t0 = time.time()
 
 #
-mean_mask = np.mean(mask, axis=0) > 0.5
-labels = label(mean_mask)
+mmask = np.mean(mask, axis=0) > 0.5
+labels = label(mmask)
 props = regionprops(labels)
 props_max = max(props, key=lambda r: r.area)
-mean_mask = (labels == props_max.label)
-skel = skeletonize(mean_mask, method="lee") > 0
-rskel = rmap.copy()
-rskel *= skel[np.newaxis, :, :]
-rskel[rskel == 0] = np.nan
+mmask = (labels == props_max.label)
+skel = skeletonize(mmask, method="lee") > 0
 
-rskel = nanfilt(
-    rskel, mask=mask,
-    kernel_size=(9, 21, 21), # size parameter
-    kernel_shape='cuboid',
+#
+raw_skel = rmap.copy()
+raw_skel *= skel[np.newaxis, :, :]
+raw_skel[raw_skel == 0] = np.nan
+raw_skel = nanfilt(
+    raw_skel, mask=mask,
+    kernel_size=(3, 21, 21), # size parameter
+    kernel_shape='ellipsoid',
     filt_method='mean',
     iterations=1,
     parallel=True
     )
 
-drskel = np.gradient(rskel, axis=0) * -1
-
-rskel = nanreplace(
-    rskel, mask=mask,
-    kernel_size=(1, 21, 21), # size parameter
-    kernel_shape='cuboid',
-    filt_method='mean',
-    iterations=1,
-    parallel=True,
-    )
-
-drskel = nanreplace(
-    drskel, mask=mask,
-    kernel_size=(1, 21, 21), # size parameter
-    kernel_shape='cuboid',
-    filt_method='mean',
-    iterations=1,
-    parallel=True,
-    )
-
 t1 = time.time()
 print(f" {(t1-t0):<5.2f}s")
 
+# viewer = napari.Viewer()
+# viewer.add_image(rescale_reg)
+# viewer.add_image(rmap)
+# viewer.add_image(raw_skel)
+
+#%%
+
+from scipy.signal import find_peaks
+from scipy.interpolate import interp1d
+from scipy.signal import butter, filtfilt
+
+# -----------------------------------------------------------------------------
+
+i = 100
+t0, t1 = 0, 1200
+
+# -----------------------------------------------------------------------------
+
+def interpolate(x_sig, y_sig, length):
+    f = interp1d(x_sig, y_sig, kind='linear', fill_value="extrapolate")
+    x_interp = np.linspace(0, length, length)   
+    return f(x_interp)
+
+def lowpass(sig, lowfreq, order):
+    t = sig.shape[0]
+    nyq = t / 2
+    low = (lowfreq * t) / nyq
+    b, a = butter(order, low, btype='low')
+    return filtfilt(b, a, sig)
+
+# -----------------------------------------------------------------------------
+
+rdata = {
+    "idx" : [], 
+    "raw" : [],
+    "dRaw" : [],
+    "norm" : [],
+    "dNorm" : [],
+    "baseline" : [],
+    }
+
+idxs = np.argwhere(skel) 
+norm_skel = np.zeros_like(raw_skel)
+for idx in idxs:
+    
+    # Extract data 
+    raw = raw_skel[:, idx[0], idx[1]]
+    dRaw = np.gradient(raw)
+
+    # Normalized raw
+    x_peaks, _ = find_peaks(raw, distance=10, prominence=0.01)
+    y_peaks = raw[x_peaks]
+    baseline = interpolate(x_peaks, y_peaks, raw.shape[0])
+    baseline = lowpass(baseline, 0.075, 1)
+    norm = raw / baseline 
+    dNorm = np.gradient(norm)
+    
+    # Fill arrays
+    norm_skel[:, idx[0], idx[1]] = norm
+    
+    # Append data
+    rdata["idx"].append(idx)
+    rdata["raw"].append(raw)
+    rdata["dRaw"].append(dRaw)
+    rdata["norm"].append(norm)
+    rdata["dNorm"].append(dNorm)
+    rdata["baseline"].append(baseline)
+    
+# -----------------------------------------------------------------------------
+    
+# Plot
+fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(16, 9))
+ax1.plot(rdata["raw"][i][t0:t1])
+ax1.plot(rdata["baseline"][i][t0:t1])
+ax2.plot(rdata["norm"][i][t0:t1])
+ax3.plot(rdata["dNorm"][i][t0:t1])
+plt.tight_layout()
+plt.show()
+
+# -----------------------------------------------------------------------------
+
+norm_skel[norm_skel == 0] = np.nan
+norm_skel = nanreplace(
+    norm_skel, mask=mask,
+    kernel_size=(3, 21, 21), # size parameter
+    kernel_shape='cuboid',
+    filt_method='mean',
+    iterations=1,
+    parallel=True,
+    )
+
+# test = np.nanstd(norm_skel, axis=0)
+# viewer = napari.Viewer()
+# viewer.add_image(test)
+
 viewer = napari.Viewer()
 viewer.add_image(rescale_reg)
-viewer.add_image(drskel)
-
-# viewer.add_image(rescale_reg)
-# viewer.add_image(outl)
-# viewer.add_image(rskel, colormap="plasma")
-    
-#%%
-    
-#
-# skel_edm = []
-# idxs = np.argwhere(skel) 
-# for idx in idxs:
-#     edm = np.zeros_like(skel)
-#     edm[idx[0], idx[1]] = True
-#     skel_edm.append(distance_transform_edt(np.invert(edm)))
-# skel_edm = np.stack(skel_edm)
-# skel_edm = np.argmin(skel_edm, axis=0)
-# skel_edm = np.repeat(skel_edm[np.newaxis, :, :], rescale.shape[0], axis=0)
-# skel_edm[mask == False] = 0
-
-# #
-# mask_edm = []
-# idxs = np.where(skel)
-# for t in range(rescale.shape[0]):
-#     tmp = rmap[t,...]
-#     mapping = tmp[idxs]
-#     mapping[0] = 0
-#     mask_edm.append(mapping[skel_edm[t,...]])
-# mask_edm = np.stack(mask_edm)   
-    
-# viewer = napari.Viewer()
-# viewer.add_image(skel_edm)
-# viewer.add_image(mask_edm)
-
-# rad_map = rmap.copy()
-# rad_map = rad_map * skel[np.newaxis, :, :]
-
-# radii = []
-# idxs = np.argwhere(skel) 
-# for idx in idxs:
-#     radii.append(rmap[:, idx[0], idx[1]])
-    
-# i = 780
-# plt.plot(radii[i]) 
-
-
-#%% Results
-
-# # Plots
-# plt.plot(np.sum(mask, axis=(1, 2)))
-
-# # Display
-# viewer = napari.Viewer()
-# viewer.add_image(rescale)
-# viewer.add_image(mask)
-# viewer.add_image(skel)
-# viewer.add_image(rmap)
-
+viewer.add_image(norm_skel, contrast_limits=(0.5, 1))
