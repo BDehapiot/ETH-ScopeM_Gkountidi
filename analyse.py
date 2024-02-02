@@ -22,15 +22,15 @@ from scipy.ndimage import distance_transform_edt
 #%% Inputs --------------------------------------------------------------------
 
 local_path = Path("D:\local_Gkountidi\data")
-# avi_name = "20231017-test 1+ 10nM erlotinib.avi"
+avi_name = "20231017-test 1+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 1+ PBS.avi"
 # avi_name = "20231017-test 2+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 2+ PBS.avi"
 # avi_name = "20231017-test 3+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 3+ PBS.avi"
 # avi_name = "20231017-test 4+ 1nM erlotinib.avi"
-avi_name = "20231017-test 4+ PBS.avi"
-# avi_name = "20231017-test 5+ 1nM erlotinib.avi"
+# avi_name = "20231017-test 4+ PBS.avi"
+# # avi_name = "20231017-test 5+ 1nM erlotinib.avi"
 # avi_name = "20231017-test 5+ PBS.avi"
 # avi_name = "20231017-test 6+ PBS.avi"
 
@@ -123,53 +123,11 @@ print(f" {(t1-t0):<5.2f}s")
 
 #%%
 
-from skimage.measure import label, regionprops
 from nan import nanreplace, nanfilt
-
-# -----------------------------------------------------------------------------
-
-print("test :", end='')
-t0 = time.time()
-
-#
-mmask = np.mean(mask, axis=0) > 0.5
-labels = label(mmask)
-props = regionprops(labels)
-props_max = max(props, key=lambda r: r.area)
-mmask = (labels == props_max.label)
-skel = skeletonize(mmask, method="lee") > 0
-
-#
-raw_skel = rmap.copy()
-raw_skel *= skel[np.newaxis, :, :]
-raw_skel[raw_skel == 0] = np.nan
-raw_skel = nanfilt(
-    raw_skel, mask=mask,
-    kernel_size=(3, 21, 21), # size parameter
-    kernel_shape='ellipsoid',
-    filt_method='mean',
-    iterations=1,
-    parallel=True
-    )
-
-t1 = time.time()
-print(f" {(t1-t0):<5.2f}s")
-
-# viewer = napari.Viewer()
-# viewer.add_image(rescale_reg)
-# viewer.add_image(rmap)
-# viewer.add_image(raw_skel)
-
-#%%
-
 from scipy.signal import find_peaks
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
-
-# -----------------------------------------------------------------------------
-
-i = 100
-t0, t1 = 0, 1200
+from skimage.measure import label, regionprops
 
 # -----------------------------------------------------------------------------
 
@@ -186,6 +144,30 @@ def lowpass(sig, lowfreq, order):
     return filtfilt(b, a, sig)
 
 # -----------------------------------------------------------------------------
+
+print("test :", end='')
+t0 = time.time()
+
+# mean mask
+mmask = np.mean(mask, axis=0) > 0.5
+labels = label(mmask)
+props = regionprops(labels)
+props_max = max(props, key=lambda r: r.area)
+mmask = (labels == props_max.label)
+skel = skeletonize(mmask, method="lee") > 0
+
+# raw skel
+raw_skel = rmap.copy()
+raw_skel *= skel[np.newaxis, :, :]
+raw_skel[raw_skel == 0] = np.nan
+raw_skel = nanfilt(
+    raw_skel, mask=mask,
+    kernel_size=(3, 21, 21), # size parameter
+    kernel_shape='ellipsoid',
+    filt_method='mean',
+    iterations=1,
+    parallel=True
+    )
 
 rdata = {
     "idx" : [], 
@@ -223,19 +205,6 @@ for idx in idxs:
     rdata["dNorm"].append(dNorm)
     rdata["baseline"].append(baseline)
     
-# -----------------------------------------------------------------------------
-    
-# Plot
-fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(16, 9))
-ax1.plot(rdata["raw"][i][t0:t1])
-ax1.plot(rdata["baseline"][i][t0:t1])
-ax2.plot(rdata["norm"][i][t0:t1])
-ax3.plot(rdata["dNorm"][i][t0:t1])
-plt.tight_layout()
-plt.show()
-
-# -----------------------------------------------------------------------------
-
 norm_skel[norm_skel == 0] = np.nan
 norm_skel = nanreplace(
     norm_skel, mask=mask,
@@ -246,10 +215,35 @@ norm_skel = nanreplace(
     parallel=True,
     )
 
-# test = np.nanstd(norm_skel, axis=0)
-# viewer = napari.Viewer()
-# viewer.add_image(test)
+# norm_skel *= np.invert(skel[np.newaxis, :, :])
+# norm_skel[norm_skel == 0] = np.nan
+# norm_skel = nanreplace(
+#     norm_skel, mask=mask,
+#     kernel_size=(1, 21, 21), # size parameter
+#     kernel_shape='cuboid',
+#     filt_method='mean',
+#     iterations=1,
+#     parallel=True,
+#     )
+
+t1 = time.time()
+print(f" {(t1-t0):<5.2f}s")
 
 viewer = napari.Viewer()
 viewer.add_image(rescale_reg)
+viewer.add_image(outl)
 viewer.add_image(norm_skel, contrast_limits=(0.5, 1))
+
+#%%
+
+i = 400
+t0, t1 = 0, 1200
+
+# Plot
+fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(16, 9))
+ax1.plot(rdata["raw"][i][t0:t1])
+ax1.plot(rdata["baseline"][i][t0:t1])
+ax2.plot(rdata["norm"][i][t0:t1])
+ax3.plot(rdata["dNorm"][i][t0:t1])
+plt.tight_layout()
+plt.show()
