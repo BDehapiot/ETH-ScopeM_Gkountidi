@@ -22,12 +22,12 @@ from scipy.ndimage import distance_transform_edt
 #%% Inputs --------------------------------------------------------------------
 
 local_path = Path("D:\local_Gkountidi\data")
-avi_name = "20231017-test 1+ 10nM erlotinib.avi"
+# avi_name = "20231017-test 1+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 1+ PBS.avi"
 # avi_name = "20231017-test 2+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 2+ PBS.avi"
 # avi_name = "20231017-test 3+ 10nM erlotinib.avi"
-# avi_name = "20231017-test 3+ PBS.avi"
+avi_name = "20231017-test 3+ PBS.avi"
 # avi_name = "20231017-test 4+ 1nM erlotinib.avi"
 # avi_name = "20231017-test 4+ PBS.avi"
 # # avi_name = "20231017-test 5+ 1nM erlotinib.avi"
@@ -211,32 +211,38 @@ norm_skel = nanreplace(
     kernel_size=(3, 21, 21), # size parameter
     kernel_shape='cuboid',
     filt_method='mean',
+    iterations=3,
+    parallel=True,
+    )
+
+norm_skel *= np.invert(skel[np.newaxis, :, :])
+norm_skel[norm_skel == 0] = np.nan
+norm_skel = nanreplace(
+    norm_skel, mask=mask,
+    kernel_size=(1, 21, 21), # size parameter
+    kernel_shape='cuboid',
+    filt_method='mean',
     iterations=1,
     parallel=True,
     )
 
-# norm_skel *= np.invert(skel[np.newaxis, :, :])
-# norm_skel[norm_skel == 0] = np.nan
-# norm_skel = nanreplace(
-#     norm_skel, mask=mask,
-#     kernel_size=(1, 21, 21), # size parameter
-#     kernel_shape='cuboid',
-#     filt_method='mean',
-#     iterations=1,
-#     parallel=True,
-#     )
-
 t1 = time.time()
 print(f" {(t1-t0):<5.2f}s")
 
+
+
+#%% Display -------------------------------------------------------------------
+
 viewer = napari.Viewer()
 viewer.add_image(rescale_reg)
-viewer.add_image(outl)
-viewer.add_image(norm_skel, contrast_limits=(0.5, 1))
+viewer.add_image(outl, blending="additive")
+viewer.add_image(
+    norm_skel, contrast_limits=(0.5, 1), colormap="viridis", opacity=0.33
+    )
 
-#%%
+#%% Plot ----------------------------------------------------------------------
 
-i = 400
+i = 200
 t0, t1 = 0, 1200
 
 # Plot
