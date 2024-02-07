@@ -27,10 +27,10 @@ local_path = Path("D:\local_Gkountidi\data")
 # avi_name = "20231017-test 2+ 10nM erlotinib.avi"
 # avi_name = "20231017-test 2+ PBS.avi"
 # avi_name = "20231017-test 3+ 10nM erlotinib.avi"
-avi_name = "20231017-test 3+ PBS.avi"
+# avi_name = "20231017-test 3+ PBS.avi"
 # avi_name = "20231017-test 4+ 1nM erlotinib.avi"
 # avi_name = "20231017-test 4+ PBS.avi"
-# # avi_name = "20231017-test 5+ 1nM erlotinib.avi"
+avi_name = "20231017-test 5+ 1nM erlotinib.avi"
 # avi_name = "20231017-test 5+ PBS.avi"
 # avi_name = "20231017-test 6+ PBS.avi"
 
@@ -120,6 +120,24 @@ print(f" {(t1-t0):<5.2f}s")
 # viewer.add_image(rescale_reg)
 # viewer.add_image(mask)
 # viewer.add_image(rmap)
+
+# Save
+io.imsave(
+    Path(local_path, avi_name.replace(".avi", "_rescale_reg.tif")),
+    rescale_reg.astype("float32"), check_contrast=False,
+    )
+io.imsave(
+    Path(local_path, avi_name.replace(".avi", "_predict_reg.tif")),
+    predict_reg.astype("float32"), check_contrast=False,
+    )
+io.imsave(
+    Path(local_path, avi_name.replace(".avi", "_mask.tif")),
+    mask.astype("uint8"), check_contrast=False,
+    )
+io.imsave(
+    Path(local_path, avi_name.replace(".avi", "_rmap.tif")),
+    rmap.astype("float32"), check_contrast=False,
+    )
 
 #%%
 
