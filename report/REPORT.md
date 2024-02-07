@@ -39,27 +39,31 @@ Comment
 - Open selected frames and associated masks
 - Reduce image resolution 
 - Normalize images (0 to 1)  
-- Data augmentation (flip, rotate, distortion...)
+- Data augmentation (flip, rotate, distord...)
 - Setup U-Net architecture and parameters (epoch, batch size, loss...)
-- Save model weights as `model_weights.h5`
+- Train the network and save weights as `model_weights.h5`
 
 ### 2. Measure local vessel contraction
 
 `analyse.py`
 
 #### 2.1 Prepare data and predict
+
 - Open and convert `.avi` movies to `ndarray`
 - Reduce image resolution 
 - Normalize images (0 to 1)  
-- Get predictions (all frames)
+- Get predictions for all frames
+
+#### 2.2 Processing
+
+- Spatial registration
+- Prediction masks (prediction > 0.5)
+- Compute euclidean distance map (vessel radius)
+- Get central line (skeletonize time-averaged prediction mask)
 
 <img src="fig2.png" alt="fig2" width="512" height="auto">
 
-#### 2.2 ???
-- Spatial registration
+#### 2.3 Analysis
 
-<img src="fig.png" alt="fig3" width="512" height="auto">
-
-- Get prediction mask and euclidean distance map 
-
-<img src="fig.png" alt="fig4" width="512" height="auto">
+- Get radius variation (EDM) for each pixel of the central line 
+- 
