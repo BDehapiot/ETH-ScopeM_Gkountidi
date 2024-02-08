@@ -1,16 +1,17 @@
 # ETH-ScopeM_Gkountidi
 
 ## Contact
-Benoit Dehapiot  
 benoit.dehapiot@scopem.ethz.ch  
 
 ## Overview
 
+Measure lymphatic vessel contractions before and after control or inhibitor injection.
+
 ## Procedure
 
-### 1. Lymphatic vessel segmentation
+We first segment the lymphatic vessels using a custom-trained U-Net network and then monitor vessel contractions by measuring their radius variation over time. Deep-learning segmentation was necessary t
 
-Comment
+### 1. Lymphatic vessel segmentation
 
 #### 1.1 Format training data 
 
@@ -65,5 +66,8 @@ Comment
 
 #### 2.3 Analysis
 
-- Get radius variation (EDM) for each pixel of the central line 
-- 
+- Get temporal radius variation for each pixel of the central line 
+- Normalize radius variation by local maxima 
+- Analyse derivative of normalized radius variation
+
+<img src="fig3.png" alt="fig3" width="512" height="auto">

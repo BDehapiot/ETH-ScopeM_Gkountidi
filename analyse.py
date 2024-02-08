@@ -229,6 +229,42 @@ norm_skel = nanreplace(
 t1 = time.time()
 print(f" {(t1-t0):<5.2f}s")
 
+#%% Plot ----------------------------------------------------------------------
+
+i = 200
+t0, t1 = 0, 1200
+
+# Plot
+fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 8))
+fig.suptitle(
+    f"Radius variation over time, pixel number {i}",
+    fontsize=12, y=0.97
+    )
+
+# ax1
+ax1.plot(rdata["raw"][i][t0:t1], label="radius")
+ax1.plot(rdata["baseline"][i][t0:t1], label="local maxima")
+ax1.set_ylabel('Radius (pixels)')
+ax1.legend(loc='lower left')
+
+# ax2
+ax2.plot(rdata["norm"][i][t0:t1], label="normalized radius")
+ax2.plot(np.full((t1 - t0), 1), label='local maxima')
+ax2.set_ylabel('Normalized radius')
+ax2.legend(loc='lower left')
+
+# ax3
+ax3.plot(rdata["dNorm"][i][t0:t1])
+ax3.set_ylabel('dr/dt')
+ax3.set_xlabel('timepoint')
+
+# Save
+plt.tight_layout()
+plt.savefig(
+    Path(local_path, avi_name.replace(".avi", "_plot.png")), 
+    dpi=300
+    )
+
 #%% Display -------------------------------------------------------------------
 
 viewer = napari.Viewer()
@@ -237,20 +273,6 @@ viewer.add_image(outl, blending="additive")
 viewer.add_image(
     norm_skel, contrast_limits=(0.5, 1), colormap="viridis", opacity=0.33
     )
-
-#%% Plot ----------------------------------------------------------------------
-
-i = 100
-t0, t1 = 0, 1200
-
-# Plot
-fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(16, 9))
-ax1.plot(rdata["raw"][i][t0:t1])
-ax1.plot(rdata["baseline"][i][t0:t1])
-ax2.plot(rdata["norm"][i][t0:t1])
-ax3.plot(rdata["dNorm"][i][t0:t1])
-plt.tight_layout()
-plt.show()
 
 #%% Save ----------------------------------------------------------------------
 
@@ -278,3 +300,8 @@ io.imsave(
     Path(local_path, avi_name.replace(".avi", "_skel.tif")),
     skel.astype("uint8") * 255, check_contrast=False,
     )
+io.imsave(
+    Path(local_path, avi_name.replace(".avi", "_skel.tif")),
+    norm_skel.astype("float32"), check_contrast=False,
+    )
+
