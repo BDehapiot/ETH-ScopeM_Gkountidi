@@ -5,13 +5,14 @@ benoit.dehapiot@scopem.ethz.ch
 
 ## Overview
 
-Measure lymphatic vessel contractions before and after control or inhibitor injection.
+Measure lymphatic vessel contractions before and after control or inhibitor 
+injection.
 
 ## Procedure
 
-We first segment the lymphatic vessels using a custom-trained U-Net network and then monitor vessel contractions by measuring their radius variation over time. Deep-learning segmentation was necessary t
+We first segment the lymphatic vessels using a custom-trained U-Net network and then monitor vessel contractions by measuring their radius variation over time.
 
-### 1. Lymphatic vessel segmentation
+### 1. **Lymphatic vessel segmentation**
 
 #### 1.1 Format training data 
 
@@ -44,7 +45,7 @@ We first segment the lymphatic vessels using a custom-trained U-Net network and 
 - Setup U-Net architecture and parameters (epoch, batch size, loss...)
 - Train the network and save weights as `model_weights.h5`
 
-### 2. Measure local vessel contraction
+### 2. **Measure local vessel contraction**
 
 `analyse.py`
 

@@ -297,11 +297,15 @@ io.imsave(
     mmask.astype("uint8") * 255, check_contrast=False,
     )
 io.imsave(
+    Path(local_path, avi_name.replace(".avi", "_outl.tif")),
+    outl.astype("uint8") * 255, check_contrast=False,
+    )
+io.imsave(
     Path(local_path, avi_name.replace(".avi", "_skel.tif")),
     skel.astype("uint8") * 255, check_contrast=False,
     )
 io.imsave(
-    Path(local_path, avi_name.replace(".avi", "_skel.tif")),
+    Path(local_path, avi_name.replace(".avi", "_norm_skel.tif")),
     norm_skel.astype("float32"), check_contrast=False,
     )
 
