@@ -4,22 +4,27 @@ channels:
   - conda-forge
 
 dependencies:
+  # conda_core
   - python=3.10
   - numpy=1.24*
   - numba
   - scipy
   - pandas
   - scikit-image
-  - scikit-learn
   - opencv
+  - scikit-learn
   - joblib
   - matplotlib-base
-  - cudatoolkit=11.2
-  - cudnn=8.1
-  - spyder
   - pip
+  # conda_spec
+  - napari
+  - pyqt
+  - spyder
+  # conda_tf_nogpu
   - pip:
-    - napari[all]
+    # pip_core
+    # pip_spec
+    # pip_tf_nogpu
     - albumentations
     - segmentation-models
-    - tensorflow-gpu==2.10
+    - tensorflow==2.10
